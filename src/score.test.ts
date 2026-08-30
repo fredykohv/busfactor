@@ -72,10 +72,26 @@ describe('scoreDependency', () => {
       { nowUnixSeconds: NOW_SECONDS },
     );
 
-    expect(floorScore.total).toBeGreaterThan(exactScore.total);
+    expect(floorScore.total).toBeLessThanOrEqual(exactScore.total);
     expect(
       floorScore.factors.some((f) => f.signal === 'author-count-floor' && f.direction === 'up'),
+    ).toBe(false);
+    expect(
+      floorScore.factors.some((f) => f.signal === 'author-count-floor' && f.direction === 'down'),
     ).toBe(true);
+  });
+
+  it('never scores at-least:N as riskier than exact:N when all else is equal', () => {
+    const exact100 = scoreDependency(
+      baseSignals({ authorCount: exact(100), topAuthorShare: 0.89, truckFactor: 1 }),
+      { nowUnixSeconds: NOW_SECONDS },
+    );
+    const atLeast100 = scoreDependency(
+      baseSignals({ authorCount: atLeast(100), topAuthorShare: 0.89, truckFactor: 1 }),
+      { nowUnixSeconds: NOW_SECONDS },
+    );
+
+    expect(atLeast100.total).toBeLessThanOrEqual(exact100.total);
   });
 
   it('penalizes stale projects and reduces fresh ones', () => {
@@ -185,6 +201,6 @@ describe('compareByRisk', () => {
 
     expect(names.indexOf('yaml')).toBeLessThan(names.indexOf('chalk'));
     expect(names[0]).toBe('left-pad');
-    expect(names[names.length - 1]).toBe('semver');
+    expect(names[names.length - 1]).toBe('undici');
   });
 });

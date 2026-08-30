@@ -158,13 +158,13 @@ export const scoreDependency = (signals: RiskSignals, options: ScoreOptions): Ri
       });
     }
   } else {
-    const floorCredit = clamp((signals.authorCount.value - 8) / 80, 0, 1) * 10;
+    const floorCredit = clamp((signals.authorCount.value - 8) / 52, 0, 1) * 18;
     if (floorCredit > 0) {
       add({
         signal: 'author-count-floor',
         points: floorCredit,
-        direction: 'up',
-        reason: `At least ${signals.authorCount.value} authors observed (GitHub list may be truncated).`,
+        direction: 'down',
+        reason: `At least ${signals.authorCount.value} authors observed (GitHub list may be truncated); this is minimum contributor breadth.`,
       });
     }
   }
