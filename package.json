@@ -1,0 +1,41 @@
+{
+  "name": "busfactor",
+  "version": "0.0.0",
+  "description": "Ranks your direct npm dependencies by how badly you'd be stuck if the maintainers vanished.",
+  "type": "module",
+  "bin": {
+    "busfactor": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "dependencies",
+    "truck-factor",
+    "bus-factor",
+    "supply-chain",
+    "maintenance",
+    "risk"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fredykohv/busfactor.git"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
