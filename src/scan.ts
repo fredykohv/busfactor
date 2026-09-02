@@ -11,12 +11,14 @@
 import { resolveRepo, type ResolveRepoDeps, type RepoLocation } from './resolve-repo.js';
 import type { StatsClient } from './stats-client.js';
 import { computeTruckFactor, type TruckFactorReport } from './truck-factor.js';
+import { scoreDependency, type RiskScore } from './score.js';
 
 export interface AnalysedDependency {
   readonly ok: true;
   readonly packageName: string;
   readonly location: RepoLocation;
   readonly report: TruckFactorReport;
+  readonly risk: RiskScore;
   /** Archived upstream: a hard risk flag regardless of the truck factor. */
   readonly archived: boolean;
   /** Set when npm's metadata pointed at a repository that has since moved. */
@@ -38,6 +40,7 @@ export type DependencyResult = AnalysedDependency | SkippedDependency;
 
 export interface ScanDeps extends ResolveRepoDeps {
   readonly stats: StatsClient;
+  readonly now?: () => number;
   /** Concurrent requests in flight. Default 5, to stay clear of rate limits. */
   readonly concurrency?: number;
 }
@@ -125,11 +128,45 @@ const analyseOne = async (
     };
   }
 
+  const now = deps.now?.() ?? Date.now();
+  const registrySignals = resolution.registrySignals;
+  const activity = {
+    kind: 'weeks' as const,
+    weeks: stats.stats.flatMap((entry) => entry.weeks),
+  };
+  const risk = scoreDependency(
+    {
+      truckFactor: report.truckFactor,
+      topAuthorShare: report.topAuthor.share,
+      authorCount: report.authorCount,
+      unattributedCommits: report.unattributedCommits,
+      totalCommits: report.totalCommits,
+      archived: resolution.archived,
+      activity,
+      ...(resolution.redirectedFrom === undefined
+        ? {}
+        : { redirectedFrom: resolution.redirectedFrom }),
+      ...(registrySignals?.lastPublish.known
+        ? {
+            lastPublish: {
+              kind: 'known' as const,
+              unixSeconds: Math.floor(registrySignals.lastPublish.at / 1000),
+            },
+          }
+        : {}),
+      ...(registrySignals?.maintainers.known
+        ? { maintainers: { kind: 'known' as const, count: registrySignals.maintainers.count } }
+        : {}),
+    },
+    { nowUnixSeconds: Math.floor(now / 1000) },
+  );
+
   return {
     ok: true,
     packageName,
     location: resolution.location,
     report,
+    risk,
     archived: resolution.archived,
     ...(resolution.redirectedFrom === undefined
       ? {}

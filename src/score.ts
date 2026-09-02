@@ -34,6 +34,8 @@ export interface RiskFactorContribution {
     | 'author-count'
     | 'author-count-floor'
     | 'staleness'
+    | 'publish-recency'
+    | 'maintainer-count'
     | 'redirected-repo'
     | 'unattributed-commits';
   readonly points: number;
@@ -144,6 +146,44 @@ export const scoreDependency = (signals: RiskSignals, options: ScoreOptions): Ri
           reason: `Recent contributor activity (${staleness.daysSinceCommit} days ago).`,
         });
       }
+    }
+  }
+
+  if (signals.lastPublish !== undefined) {
+    const publishAgeDays = Math.max(
+      0,
+      Math.floor((options.nowUnixSeconds - signals.lastPublish.unixSeconds) / (24 * 60 * 60)),
+    );
+    const publishStalePoints = clamp((publishAgeDays - 180) / 550, 0, 1) * 14;
+    if (publishStalePoints > 0) {
+      add({
+        signal: 'publish-recency',
+        points: publishStalePoints,
+        direction: 'up',
+        reason: `Latest npm release was ${publishAgeDays} days ago.`,
+      });
+    } else {
+      const publishFreshnessCredit = clamp((180 - publishAgeDays) / 180, 0, 1) * 4;
+      if (publishFreshnessCredit > 0) {
+        add({
+          signal: 'publish-recency',
+          points: publishFreshnessCredit,
+          direction: 'down',
+          reason: `Latest npm release was ${publishAgeDays} days ago.`,
+        });
+      }
+    }
+  }
+
+  if (signals.maintainers !== undefined) {
+    const maintainerCredit = clamp((signals.maintainers.count - 1) / 9, 0, 1) * 10;
+    if (maintainerCredit > 0) {
+      add({
+        signal: 'maintainer-count',
+        points: maintainerCredit,
+        direction: 'down',
+        reason: `${signals.maintainers.count} npm maintainers lower release concentration risk.`,
+      });
     }
   }
 

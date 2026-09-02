@@ -90,6 +90,38 @@ describe('scanDependencies', () => {
     }
   });
 
+  it('passes registry release and maintainer signals into the risk score', async () => {
+    const [result] = await scanDependencies(
+      { dependencies: ['owned'] },
+      {
+        ...buildDeps({
+          registry: {
+            owned: {
+              repository: { url: 'https://github.com/acme/owned.git' },
+              registrySignals: {
+                lastPublish: {
+                  known: true,
+                  version: '1.0.0',
+                  at: Date.parse('2020-01-01T00:00:00.000Z'),
+                  ageDays: 0,
+                },
+                maintainers: { known: true, count: 1, names: ['owner'] },
+              },
+            },
+          },
+        }),
+        now: () => Date.parse('2026-09-02T00:00:00.000Z'),
+      },
+    );
+
+    expect(result?.ok).toBe(true);
+    if (result?.ok) {
+      expect(result.risk.factors).toContainEqual(
+        expect.objectContaining({ signal: 'publish-recency', direction: 'up' }),
+      );
+    }
+  });
+
   // The central guarantee: the output accounts for every input, so a report can
   // never quietly analyse fewer dependencies than the user actually has.
   it('returns one result per dependency even when some fail', async () => {
