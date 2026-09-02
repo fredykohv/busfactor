@@ -11,6 +11,8 @@
  * "we could not analyse these N dependencies, and here is why".
  */
 
+import { parseRegistrySignals, type RegistrySignals } from './registry-signals.js';
+
 /** Where a package's source lives, once we've found it. */
 export interface RepoLocation {
   readonly owner: string;
@@ -45,6 +47,7 @@ export interface ResolutionSuccess {
   readonly location: RepoLocation;
   /** True when the GitHub repository is archived — a hard risk flag downstream. */
   readonly archived: boolean;
+  readonly registrySignals?: RegistrySignals;
   /**
    * Set when the repository has been renamed or transferred and GitHub
    * redirected us. `location` holds the canonical slug; this holds what npm
@@ -235,6 +238,7 @@ export function parseRepositoryField(field: RepositoryField): ParseResult {
 /** Minimal package metadata the resolver needs. */
 export interface PackageMetadata {
   readonly repository?: RepositoryField;
+  readonly registrySignals?: RegistrySignals;
 }
 
 /** Fetches package metadata from an npm registry. */
@@ -314,7 +318,13 @@ export async function resolveRepo(
   const declared = parsed.location;
   const checker = deps.repoChecker;
   if (checker === undefined) {
-    return { ok: true, packageName, location: declared, archived: false };
+    return {
+      ok: true,
+      packageName,
+      location: declared,
+      archived: false,
+      ...(metadata.registrySignals === undefined ? {} : { registrySignals: metadata.registrySignals }),
+    };
   }
 
   let status: RepoStatus;
@@ -348,7 +358,13 @@ export async function resolveRepo(
         };
 
   if (sameSlug(declared, canonical)) {
-    return { ok: true, packageName, location: canonical, archived: status.archived };
+    return {
+      ok: true,
+      packageName,
+      location: canonical,
+      archived: status.archived,
+      ...(metadata.registrySignals === undefined ? {} : { registrySignals: metadata.registrySignals }),
+    };
   }
 
   return {
@@ -389,12 +405,17 @@ export function createNpmRegistryClient(
       const body = (await res.json()) as {
         repository?: RepositoryField;
         'dist-tags'?: { latest?: string };
+        time?: Record<string, string | undefined>;
+        maintainers?: readonly { name?: string }[];
         versions?: Record<string, { repository?: RepositoryField } | undefined>;
       };
       const latestTag = body['dist-tags']?.latest;
       const latest = latestTag === undefined ? undefined : body.versions?.[latestTag];
       const repository = latest?.repository ?? body.repository;
-      return repository === undefined ? {} : { repository };
+      return {
+        ...(repository === undefined ? {} : { repository }),
+        registrySignals: parseRegistrySignals(body, { now: Date.now() }),
+      };
     },
   };
 }

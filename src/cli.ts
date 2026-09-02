@@ -3,8 +3,7 @@
  * `busfactor scan` — the walking skeleton.
  *
  * Deliberately thin: argument parsing, wiring the modules together, and
- * printing. All judgement lives in the modules underneath, and the scoring
- * model that will replace this ordering is M2 work.
+ * printing. All judgement lives in the modules underneath.
  */
 
 import { readFile } from 'node:fs/promises';
@@ -12,6 +11,7 @@ import { resolve } from 'node:path';
 import { createNpmRegistryClient, createGitHubRepoChecker } from './resolve-repo.js';
 import { createGitHubStatsClient } from './stats-client.js';
 import { readManifest, scanDependencies, type DependencyResult } from './scan.js';
+import { compareByRisk } from './score.js';
 
 interface Options {
   readonly manifestPath: string;
@@ -31,18 +31,14 @@ const parseArgs = (argv: readonly string[]): Options => ({
 const pct = (value: number): string => `${Math.round(value * 100)}%`;
 
 /**
- * Orders results by concentration risk: fewer authors first, and within the
- * same truck factor, the more dominant top author first.
- *
- * The tie-break is not cosmetic. Most packages score a truck factor of 1, so
- * without it the ranking is arbitrary across the majority of a dependency
- * list. A real scoring model (liveness, staleness, downloads) is M2.
+ * Orders analysed results by the explainable M2 risk score. Skipped
+ * dependencies remain at the bottom so the report accounts for every input.
  */
 const byRisk = (a: DependencyResult, b: DependencyResult): number => {
   if (!a.ok || !b.ok) return a.ok ? -1 : b.ok ? 1 : 0;
-  return (
-    a.report.truckFactor - b.report.truckFactor ||
-    b.report.topAuthor.share - a.report.topAuthor.share
+  return compareByRisk(
+    { packageName: a.packageName, score: a.risk },
+    { packageName: b.packageName, score: b.risk },
   );
 };
 
@@ -54,9 +50,9 @@ const printTable = (results: readonly DependencyResult[]): void => {
     const width = Math.max(...analysed.map((r) => r.packageName.length), 7);
     console.log('');
     console.log(
-      `${'package'.padEnd(width)}  ${'TF'.padEnd(3)} ${'top'.padEnd(5)} author`,
+      `${'package'.padEnd(width)}  ${'risk'.padEnd(5)} ${'TF'.padEnd(3)} ${'top'.padEnd(5)} author`,
     );
-    console.log('-'.repeat(width + 30));
+    console.log('-'.repeat(width + 38));
 
     for (const entry of [...analysed].sort(byRisk)) {
       const flags = [
@@ -67,6 +63,7 @@ const printTable = (results: readonly DependencyResult[]): void => {
 
       console.log(
         `${entry.packageName.padEnd(width)}  ` +
+          `${entry.risk.total.toFixed(1).padEnd(5)} ` +
           `${String(entry.report.truckFactor).padEnd(3)} ` +
           `${pct(entry.report.topAuthor.share).padEnd(5)} ` +
           `${entry.report.topAuthor.login}` +

@@ -110,6 +110,29 @@ describe('scoreDependency', () => {
 
     expect(stale.total).toBeGreaterThan(fresh.total);
   });
+
+  it('uses npm release recency and maintainer breadth when available', () => {
+    const staleSingleOwner = scoreDependency(
+      baseSignals({
+        lastPublish: { kind: 'known', unixSeconds: NOW_SECONDS - 2000 * DAY },
+        maintainers: { kind: 'known', count: 1 },
+      }),
+      { nowUnixSeconds: NOW_SECONDS },
+    );
+    const freshBroadOwnership = scoreDependency(
+      baseSignals({
+        lastPublish: { kind: 'known', unixSeconds: NOW_SECONDS - 10 * DAY },
+        maintainers: { kind: 'known', count: 5 },
+      }),
+      { nowUnixSeconds: NOW_SECONDS },
+    );
+
+    expect(staleSingleOwner.total).toBeGreaterThan(freshBroadOwnership.total);
+    expect(staleSingleOwner.factors.some((f) => f.signal === 'publish-recency')).toBe(true);
+    expect(freshBroadOwnership.factors).toContainEqual(
+      expect.objectContaining({ signal: 'maintainer-count', direction: 'down' }),
+    );
+  });
 });
 
 describe('compareByRisk', () => {
