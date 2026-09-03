@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `busfactor scan` — the walking skeleton.
+ * `truckguard scan` — the walking skeleton.
  *
  * Deliberately thin: wiring the modules together and printing. Argument
  * handling lives in `cli-options.ts` so it can be tested directly; all

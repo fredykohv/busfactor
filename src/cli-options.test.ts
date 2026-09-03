@@ -59,7 +59,7 @@ describe('parseArgs', () => {
   });
 
   it('accepts --markdown with a deterministic output path', () => {
-    const parsed = run(['scan', '--markdown', '--output', 'artifacts/busfactor.md']);
+    const parsed = run(['scan', '--markdown', '--output', 'artifacts/truckguard.md']);
     expect(parsed).toEqual({
       kind: 'run',
       options: {
@@ -67,7 +67,7 @@ describe('parseArgs', () => {
         includeDev: false,
         json: false,
         markdown: true,
-        markdownOutputPath: 'artifacts/busfactor.md',
+        markdownOutputPath: 'artifacts/truckguard.md',
       },
     });
 
@@ -114,7 +114,7 @@ describe('parseArgs', () => {
   });
 
   it('rejects --output without --markdown', () => {
-    const parsed = run(['scan', '--output', 'artifacts/busfactor.md']);
+    const parsed = run(['scan', '--output', 'artifacts/truckguard.md']);
     expect(parsed.kind).toBe('error');
     expect(parsed.kind === 'error' && parsed.message).toContain('requires --markdown');
   });
@@ -133,18 +133,18 @@ describe('parseArgs', () => {
 });
 
 describe('resolveCacheDirectory', () => {
-  it('prefers BUSFACTOR_CACHE_DIR', () => {
-    expect(resolveCacheDirectory({ BUSFACTOR_CACHE_DIR: '/tmp/bf', HOME: '/home/x' }, '/proj')).toBe(
+  it('prefers TRUCKGUARD_CACHE_DIR', () => {
+    expect(resolveCacheDirectory({ TRUCKGUARD_CACHE_DIR: '/tmp/bf', HOME: '/home/x' }, '/proj')).toBe(
       '/tmp/bf',
     );
   });
 
   it('falls back to the home cache directory', () => {
-    expect(resolveCacheDirectory({ HOME: '/home/x' }, '/proj')).toBe('/home/x/.cache/busfactor');
+    expect(resolveCacheDirectory({ HOME: '/home/x' }, '/proj')).toBe('/home/x/.cache/truckguard');
   });
 
   it('falls back to the working directory when HOME is unset', () => {
-    expect(resolveCacheDirectory({}, '/proj')).toBe('/proj/.cache/busfactor');
+    expect(resolveCacheDirectory({}, '/proj')).toBe('/proj/.cache/truckguard');
   });
 });
 
@@ -167,7 +167,7 @@ describe('manifestErrorMessage', () => {
     const error = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
     const message = manifestErrorMessage('/proj/package.json', error);
     expect(message).toContain('No package.json at /proj/package.json');
-    expect(message).toContain('busfactor scan ./my-app');
+    expect(message).toContain('truckguard scan ./my-app');
   });
 
   it('reports a parse failure distinctly', () => {
@@ -184,7 +184,7 @@ describe('help and warnings', () => {
       expect(text).toContain('--output');
       expect(text).toContain(flag);
     }
-    expect(text).toContain('BUSFACTOR_CACHE_DIR');
+    expect(text).toContain('TRUCKGUARD_CACHE_DIR');
     expect(text).toContain('GITHUB_TOKEN');
   });
 

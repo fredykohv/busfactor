@@ -1,13 +1,13 @@
-# busfactor
+# truckguard
 
 **Ranks your direct npm dependencies by how badly you'd be stuck if the maintainers vanished.**
 
 Existing tools tell you a package has 3 maintainers. They don't tell you that two of them last committed in 2021, and that the third wrote 94% of the code you actually import.
 
-`busfactor` computes that.
+`truckguard` computes that.
 
 ```bash
-npx busfactor scan
+npx truckguard scan
 ```
 
 Risk scores are **heuristics**, not certainties: they combine truck factor, author concentration, liveness, and other signals into a single explainable number, with the reasoning shown alongside it. Treat a high score as "worth a closer look," not as a verdict.
@@ -19,35 +19,35 @@ Requires **Node.js 20 or later**.
 Run it without installing anything:
 
 ```bash
-npx busfactor scan
+npx truckguard scan
 ```
 
 Or install it globally:
 
 ```bash
-npm install --global busfactor
-busfactor scan
+npm install --global truckguard
+truckguard scan
 ```
 
 Or as a local dev dependency, invoked via `npx` or an `npm` script:
 
 ```bash
-npm install --save-dev busfactor
-npx busfactor scan
+npm install --save-dev truckguard
+npx truckguard scan
 ```
 
 ### First command
 
 ```bash
-npx busfactor scan
+npx truckguard scan
 ```
 
-Run from a directory containing a `package.json` (or point it at one — see [Usage](#usage)). The first run creates a local cache under `~/.cache/busfactor` (see [Environment](#environment)) and prints a ranked table to stdout.
+Run from a directory containing a `package.json` (or point it at one — see [Usage](#usage)). The first run creates a local cache under `~/.cache/truckguard` (see [Environment](#environment)) and prints a ranked table to stdout.
 
 ## Usage
 
 ```
-busfactor scan [path] [options]
+truckguard scan [path] [options]
 ```
 
 `path` is a directory containing a `package.json`, or a path to the `package.json` itself. It defaults to the current directory.
@@ -70,11 +70,11 @@ When `--output` is used, Markdown is written to that file and not printed to std
 | Variable | Effect |
 | --- | --- |
 | `GITHUB_TOKEN` / `GH_TOKEN` | Raises the GitHub rate limit from 60 to 5000 requests per hour. Without it, most dependency lists will be partly skipped. |
-| `BUSFACTOR_CACHE_DIR` | Where responses are cached. Defaults to `~/.cache/busfactor`, with a 24-hour TTL. |
+| `TRUCKGUARD_CACHE_DIR` | Where responses are cached. Defaults to `~/.cache/truckguard`, with a 24-hour TTL. |
 
 ```bash
 export GITHUB_TOKEN="$(gh auth token)"
-npx busfactor scan --dev
+npx truckguard scan --dev
 ```
 
 Progress is written to stderr, so `--json` and `--markdown` output stays pipeable.
@@ -180,13 +180,13 @@ So the score combines:
 
 ## Status
 
-Pre-alpha. The metric is validated (see [Why commits](#why-commits-and-not-lines)), and `busfactor scan` works end to end with table, JSON, and Markdown output.
+Pre-alpha. The metric is validated (see [Why commits](#why-commits-and-not-lines)), and `truckguard scan` works end to end with table, JSON, and Markdown output.
 
 See `docs/agents/` for how this repo is organised.
 
 ## GitHub Actions distribution
 
-This repository ships a practical workflow at `.github/workflows/distribution.yml` that runs `busfactor` against the checked-out repository and publishes a shareable Markdown report.
+This repository ships a practical workflow at `.github/workflows/distribution.yml` that runs `truckguard` against the checked-out repository and publishes a shareable Markdown report.
 
 ### What it does
 

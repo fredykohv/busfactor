@@ -1,10 +1,10 @@
 {
-  "name": "busfactor",
-  "version": "0.1.0",
+  "name": "truckguard",
+  "version": "0.1.1",
   "description": "Ranks your direct npm dependencies by how badly you'd be stuck if the maintainers vanished.",
   "type": "module",
   "bin": {
-    "busfactor": "./dist/cli.js"
+    "truckguard": "./dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -1,5 +1,5 @@
 /**
- * Pure argument handling for `busfactor`.
+ * Pure argument handling for `truckguard`.
  *
  * Kept out of `cli.ts` so every user-visible decision — what a flag means, what
  * a bad invocation says, which exit code a run deserves — is testable without
@@ -43,19 +43,19 @@ export const resolveManifestPath = (cwd: string, target: string | undefined): st
   return basename(base) === 'package.json' ? base : resolve(base, 'package.json');
 };
 
-/** Cache location, honouring `BUSFACTOR_CACHE_DIR`. */
+/** Cache location, honouring `TRUCKGUARD_CACHE_DIR`. */
 export const resolveCacheDirectory = (
   env: Readonly<Record<string, string | undefined>>,
   cwd: string,
 ): string =>
-  resolve(env['BUSFACTOR_CACHE_DIR'] ?? `${env['HOME'] ?? cwd}/.cache/busfactor`);
+  resolve(env['TRUCKGUARD_CACHE_DIR'] ?? `${env['HOME'] ?? cwd}/.cache/truckguard`);
 
 export const helpText = (): string =>
   [
-    'busfactor — rank your direct npm dependencies by maintainer concentration.',
+    'truckguard — rank your direct npm dependencies by maintainer concentration.',
     '',
     'Usage:',
-    '  busfactor scan [path] [options]',
+    '  truckguard scan [path] [options]',
     '',
     'Arguments:',
     '  path            Directory containing a package.json, or a path to one.',
@@ -73,7 +73,7 @@ export const helpText = (): string =>
     'Environment:',
     '  GITHUB_TOKEN / GH_TOKEN   Raises the GitHub rate limit from 60 to 5000',
     '                            requests per hour. Strongly recommended.',
-    '  BUSFACTOR_CACHE_DIR       Cache location. Defaults to ~/.cache/busfactor.',
+    '  TRUCKGUARD_CACHE_DIR       Cache location. Defaults to ~/.cache/truckguard.',
     '',
     'Exit codes:',
     '  0  The scan ran; some dependencies may be reported as skipped.',
@@ -92,7 +92,7 @@ export const noTokenWarning = (): string =>
   ].join('\n');
 
 /**
- * Parses `busfactor` arguments. Unknown flags are an error rather than being
+ * Parses `truckguard` arguments. Unknown flags are an error rather than being
  * ignored: silently dropping a misspelled `--markdwn` and printing a table is
  * worse than saying so.
  */
@@ -108,13 +108,13 @@ export const parseArgs = (
   if (argv[0] !== undefined && argv[0] !== 'scan' && argv[0].startsWith('-') === false) {
     return {
       kind: 'error',
-      message: `Unknown command "${argv[0]}". The only command is "scan"; run "busfactor --help".`,
+      message: `Unknown command "${argv[0]}". The only command is "scan"; run "truckguard --help".`,
     };
   }
 
   const unknown = args.find((arg) => arg.startsWith('-') && !KNOWN_FLAGS.has(arg));
   if (unknown !== undefined) {
-    return { kind: 'error', message: `Unknown option "${unknown}". Run "busfactor --help".` };
+    return { kind: 'error', message: `Unknown option "${unknown}". Run "truckguard --help".` };
   }
 
   const json = args.includes('--json');
@@ -185,7 +185,7 @@ export const manifestErrorMessage = (manifestPath: string, error: unknown): stri
 
   return missing
     ? `No package.json at ${manifestPath}.\n` +
-        '  -> Run busfactor from a project directory, or pass a path: busfactor scan ./my-app'
+        '  -> Run truckguard from a project directory, or pass a path: truckguard scan ./my-app'
     : `Could not read ${manifestPath}: ${detail}\n` +
         '  -> Check that the file is valid JSON.';
 };

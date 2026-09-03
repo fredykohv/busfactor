@@ -467,7 +467,7 @@ export function createGitHubRepoChecker(
     async checkRepo(location) {
       const headers: Record<string, string> = {
         accept: 'application/vnd.github+json',
-        'user-agent': 'busfactor',
+        'user-agent': 'truckguard',
       };
       if (options.token !== undefined) headers['authorization'] = `Bearer ${options.token}`;
 

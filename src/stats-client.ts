@@ -82,7 +82,7 @@ export function createGitHubStatsClient(
       const url = `https://api.github.com/repos/${location.owner}/${location.repo}/stats/contributors`;
       const headers: Record<string, string> = {
         accept: 'application/vnd.github+json',
-        'user-agent': 'busfactor',
+        'user-agent': 'truckguard',
       };
       if (options.token) headers['authorization'] = `Bearer ${options.token}`;
 
