@@ -46,6 +46,7 @@ const slug = (name: string): RepoLocation => ({ owner: 'acme', repo: name });
 /** Builds scan dependencies from per-package canned outcomes. */
 const buildDeps = (spec: {
   registry?: Record<string, unknown>;
+  repoStatus?: Record<string, unknown>;
   stats?: Record<string, { ok: boolean; reason?: string; remedy?: string }>;
 }): ScanDeps => ({
   registry: {
@@ -56,6 +57,9 @@ const buildDeps = (spec: {
   },
   repoChecker: {
     async checkRepo(location) {
+      if (spec.repoStatus && location.repo in spec.repoStatus) {
+        return spec.repoStatus[location.repo] as never;
+      }
       return { state: 'exists', archived: false, canonical: location } as never;
     },
   },
@@ -160,6 +164,53 @@ describe('scanDependencies', () => {
     );
 
     expect(result).toMatchObject({ ok: false, reason: 'no-repository-field' });
+  });
+
+  // The repository checker (not just the stats client) can hit a SAML-guarded
+  // or rate-limited GitHub response. That must reach the caller as a first
+  // class, actionable reason — never collapsed into a generic check failure.
+  it('preserves a SAML-protected repository check as repository-saml-protected', async () => {
+    const [result] = await scanDependencies(
+      { dependencies: ['locked-repo'] },
+      buildDeps({
+        repoStatus: {
+          'locked-repo': {
+            state: 'forbidden',
+            reason: 'saml-protected',
+            detail: 'repository is protected by organisation SAML enforcement',
+            remedy: 'grant your GitHub token access to this organisation, then re-run',
+          },
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'repository-saml-protected',
+      remedy: expect.stringMatching(/grant/i),
+    });
+  });
+
+  it('preserves a rate-limited repository check as repository-rate-limited', async () => {
+    const [result] = await scanDependencies(
+      { dependencies: ['busy-repo'] },
+      buildDeps({
+        repoStatus: {
+          'busy-repo': {
+            state: 'forbidden',
+            reason: 'rate-limited',
+            detail: 'GitHub rate limit exhausted, resets at 2030-01-01T00:00:00.000Z',
+            remedy: 'wait for the reset, or set GITHUB_TOKEN for a higher limit',
+          },
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      reason: 'repository-rate-limited',
+      detail: expect.stringContaining('2030'),
+    });
   });
 
   it('preserves input order despite concurrent execution', async () => {

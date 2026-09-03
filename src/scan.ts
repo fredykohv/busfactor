@@ -104,6 +104,7 @@ const analyseOne = async (
       packageName,
       reason: resolution.reason,
       detail: resolution.detail,
+      ...(resolution.remedy === undefined ? {} : { remedy: resolution.remedy }),
     };
   }
 

@@ -15,6 +15,7 @@
 
 import type { ContributorStat } from './truck-factor.js';
 import type { RepoLocation } from './resolve-repo.js';
+import { classifyForbidden } from './github-forbidden.js';
 
 export type StatsFailureReason =
   /** Repository is gone, renamed without a redirect, or private to us. */
@@ -69,42 +70,6 @@ const failure = (
     ? { ok: false, reason, detail }
     : { ok: false, reason, detail, remedy };
 
-/**
- * Distinguishes the several meanings of a 403 from GitHub.
- *
- * GitHub overloads 403 for SAML enforcement, rate limiting and legal blocks.
- * The response body and headers are the only way to tell them apart, and the
- * right advice differs completely in each case.
- */
-const classifyForbidden = (body: string, headers: Headers): StatsResult => {
-  if (/SAML enforcement/i.test(body)) {
-    return failure(
-      'saml-protected',
-      'repository is protected by organisation SAML enforcement',
-      'grant your GitHub token access to this organisation, then re-run',
-    );
-  }
-  if (headers.get('x-ratelimit-remaining') === '0') {
-    const reset = headers.get('x-ratelimit-reset');
-    const when = reset
-      ? new Date(Number(reset) * 1000).toISOString()
-      : 'shortly';
-    return failure(
-      'rate-limited',
-      `GitHub rate limit exhausted, resets at ${when}`,
-      'wait for the reset, or set GITHUB_TOKEN for a higher limit',
-    );
-  }
-  if (/secondary rate limit/i.test(body)) {
-    return failure(
-      'rate-limited',
-      'hit a GitHub secondary rate limit',
-      'reduce concurrency and re-run',
-    );
-  }
-  return failure('request-failed', `GitHub returned 403: ${body.slice(0, 120)}`);
-};
-
 export function createGitHubStatsClient(
   options: StatsClientOptions = {},
 ): StatsClient {
@@ -141,7 +106,8 @@ export function createGitHubStatsClient(
           );
         }
         if (response.status === 403 || response.status === 429) {
-          return classifyForbidden(await response.text(), response.headers);
+          const classified = classifyForbidden(await response.text(), response.headers);
+          return failure(classified.reason, classified.detail, classified.remedy);
         }
         if (response.status === 451) {
           return failure('blocked', 'repository is unavailable for legal reasons');

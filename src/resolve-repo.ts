@@ -12,6 +12,7 @@
  */
 
 import { parseRegistrySignals, type RegistrySignals } from './registry-signals.js';
+import { classifyForbidden } from './github-forbidden.js';
 
 /** Where a package's source lives, once we've found it. */
 export interface RepoLocation {
@@ -38,6 +39,13 @@ export type ResolutionFailureReason =
   | 'malformed-repository-url'
   /** We parsed a GitHub slug, but the repository no longer exists. */
   | 'repository-not-found'
+  /**
+   * The token lacks organisation access to the repository, typically SAML SSO
+   * enforcement. Actionable: the user can authorise their token for that org.
+   */
+  | 'repository-saml-protected'
+  /** Primary or secondary rate limit while checking the repository. */
+  | 'repository-rate-limited'
   /** We parsed a GitHub slug, but GitHub could not be reached. */
   | 'repository-check-failed';
 
@@ -64,6 +72,8 @@ export interface ResolutionFailure {
   readonly detail: string;
   /** The raw `repository` value we were given, when there was one. */
   readonly rawRepository?: string;
+  /** What the user could do about it, when there is something. */
+  readonly remedy?: string;
 }
 
 export type Resolution = ResolutionSuccess | ResolutionFailure;
@@ -249,11 +259,23 @@ export interface RegistryClient {
 
 export type RepoStatus =
   | { readonly state: 'exists'; readonly archived: boolean; readonly canonical: RepoLocation }
-  | { readonly state: 'missing' };
+  | { readonly state: 'missing' }
+  | {
+      readonly state: 'forbidden';
+      readonly reason: 'saml-protected' | 'rate-limited' | 'request-failed';
+      readonly detail: string;
+      readonly remedy?: string;
+    };
 
 /** Checks whether a GitHub repository still exists, and where it now lives. */
 export interface RepoChecker {
-  /** Throws on transport failure; returns `{ state: 'missing' }` for a 404. */
+  /**
+   * Throws on transport failure; returns `{ state: 'missing' }` for a 404 and
+   * `{ state: 'forbidden', ... }` for a 403/429 GitHub declines to answer for
+   * access reasons (SAML enforcement, rate limiting) rather than a generic
+   * thrown error, so the caller can report the real cause instead of
+   * collapsing it into `repository-check-failed`.
+   */
   checkRepo(location: RepoLocation): Promise<RepoStatus>;
 }
 
@@ -348,6 +370,22 @@ export async function resolveRepo(
     };
   }
 
+  if (status.state === 'forbidden') {
+    const reason: ResolutionFailureReason =
+      status.reason === 'saml-protected'
+        ? 'repository-saml-protected'
+        : status.reason === 'rate-limited'
+          ? 'repository-rate-limited'
+          : 'repository-check-failed';
+    return {
+      ok: false,
+      packageName,
+      reason,
+      detail: status.detail,
+      ...(status.remedy === undefined ? {} : { remedy: status.remedy }),
+    };
+  }
+
   const canonical: RepoLocation =
     declared.directory === undefined
       ? { owner: status.canonical.owner, repo: status.canonical.repo }
@@ -438,6 +476,22 @@ export function createGitHubRepoChecker(
         { headers },
       );
       if (res.status === 404) return { state: 'missing' };
+      if (res.status === 403 || res.status === 429) {
+        const classified = classifyForbidden(await res.text(), res.headers);
+        return {
+          state: 'forbidden',
+          reason: classified.reason,
+          detail: classified.detail,
+          ...(classified.remedy === undefined ? {} : { remedy: classified.remedy }),
+        };
+      }
+      if (res.status === 451) {
+        return {
+          state: 'forbidden',
+          reason: 'request-failed',
+          detail: `repository ${location.owner}/${location.repo} is unavailable for legal reasons`,
+        };
+      }
       if (!res.ok) throw new Error(`github responded ${res.status}`);
       const body = (await res.json()) as { full_name?: string; archived?: boolean };
       const parts = (body.full_name ?? `${location.owner}/${location.repo}`).split('/');
