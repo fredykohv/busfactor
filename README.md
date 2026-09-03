@@ -10,6 +10,47 @@ Existing tools tell you a package has 3 maintainers. They don't tell you that tw
 npx busfactor scan
 ```
 
+## Usage
+
+```
+busfactor scan [path] [options]
+```
+
+`path` is a directory containing a `package.json`, or a path to the `package.json` itself. It defaults to the current directory.
+
+| Option | Effect |
+| --- | --- |
+| `--dev` | Include `devDependencies` as well as `dependencies`. |
+| `--json` | Emit the full result set as JSON, including skipped entries. |
+| `--markdown` | Emit an explainable Markdown report. |
+| `-h`, `--help` | Show usage. |
+| `-v`, `--version` | Show the version. |
+
+`--json` and `--markdown` are mutually exclusive. Unknown commands and options are rejected rather than ignored, so a typo never quietly produces a different report.
+
+### Environment
+
+| Variable | Effect |
+| --- | --- |
+| `GITHUB_TOKEN` / `GH_TOKEN` | Raises the GitHub rate limit from 60 to 5000 requests per hour. Without it, most dependency lists will be partly skipped. |
+| `BUSFACTOR_CACHE_DIR` | Where responses are cached. Defaults to `~/.cache/busfactor`, with a 24-hour TTL. |
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+npx busfactor scan --dev
+```
+
+Progress is written to stderr, so `--json` and `--markdown` output stays pipeable.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | The scan ran. Some dependencies may still be reported as skipped — skips are reported, never hidden. |
+| `1` | Bad usage, an unreadable `package.json`, or no dependency could be analysed at all. |
+
+Note that a partially skipped scan exits `0` on purpose: a rate limit on three of forty packages is a caveat, not a failure. A scan where *nothing* resolved is a failure, and CI should hear about it.
+
 ## Why
 
 Dependency tooling today splits into two camps:
@@ -102,7 +143,7 @@ So the score combines:
 
 ## Status
 
-Pre-alpha. The metric is validated (see [Why commits](#why-commits-and-not-lines)); the CLI is not built yet.
+Pre-alpha. The metric is validated (see [Why commits](#why-commits-and-not-lines)), and `busfactor scan` works end to end with table, JSON, and Markdown output.
 
 See `docs/agents/` for how this repo is organised.
 
