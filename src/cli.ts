@@ -12,11 +12,13 @@ import { createNpmRegistryClient, createGitHubRepoChecker } from './resolve-repo
 import { createGitHubStatsClient } from './stats-client.js';
 import { readManifest, scanDependencies, type DependencyResult } from './scan.js';
 import { compareByRisk } from './score.js';
+import { renderMarkdownReport } from './report.js';
 
 interface Options {
   readonly manifestPath: string;
   readonly includeDev: boolean;
   readonly json: boolean;
+  readonly markdown: boolean;
 }
 
 const parseArgs = (argv: readonly string[]): Options => ({
@@ -26,6 +28,7 @@ const parseArgs = (argv: readonly string[]): Options => ({
   ),
   includeDev: argv.includes('--dev'),
   json: argv.includes('--json'),
+  markdown: argv.includes('--markdown'),
 });
 
 const pct = (value: number): string => `${Math.round(value * 100)}%`;
@@ -128,6 +131,11 @@ const main = async (): Promise<void> => {
 
   if (options.json) {
     console.log(JSON.stringify(results, null, 2));
+    return;
+  }
+
+  if (options.markdown) {
+    process.stdout.write(renderMarkdownReport(results));
     return;
   }
 
