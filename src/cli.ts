@@ -13,6 +13,7 @@ import { createGitHubStatsClient } from './stats-client.js';
 import { readManifest, scanDependencies, type DependencyResult } from './scan.js';
 import { compareByRisk } from './score.js';
 import { renderMarkdownReport } from './report.js';
+import { createFileCachedFetch } from './cache.js';
 
 interface Options {
   readonly manifestPath: string;
@@ -123,10 +124,24 @@ const main = async (): Promise<void> => {
     );
   }
 
+  const cacheDirectory = resolve(
+    process.env['BUSFACTOR_CACHE_DIR'] ??
+      `${process.env['HOME'] ?? process.cwd()}/.cache/busfactor`,
+  );
+  const cachedFetch = createFileCachedFetch({ directory: cacheDirectory });
+
   const results = await scanDependencies(manifest, {
-    registry: createNpmRegistryClient(),
-    repoChecker: createGitHubRepoChecker(token === undefined ? {} : { token }),
-    stats: createGitHubStatsClient(token === undefined ? {} : { token }),
+    registry: createNpmRegistryClient({ fetch: cachedFetch }),
+    repoChecker: createGitHubRepoChecker(
+      token === undefined
+        ? { fetch: cachedFetch }
+        : { token, fetch: cachedFetch },
+    ),
+    stats: createGitHubStatsClient(
+      token === undefined
+        ? { fetch: cachedFetch }
+        : { token, fetch: cachedFetch },
+    ),
   });
 
   if (options.json) {
