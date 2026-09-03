@@ -139,8 +139,10 @@ say who *writes* the code, npm ownership says who can *release* it.
   tagged `latest`. Unknown when there is no latest version or no timestamp; the
   unknown state carries no age, so it cannot be misread as "published today".
 - **Staleness** - two distinct kinds, do not conflate them. Repository
-  staleness is days since the last commit activity. Publish staleness is days
-  since the last npm release.
+  staleness is days since the most recent weekly contributor-stats bucket that
+  contains any commits (not merely "last commit activity" in the abstract; it
+  is derived from the same weekly buckets as the commit and line signals).
+  Publish staleness is days since the last npm release.
 - **Maintainer / publisher count** - npm accounts that can publish the package.
   Absent and empty are both treated as unknown: a published package always has
   at least one owner, so an empty list is a metadata artefact, and reporting
@@ -186,14 +188,14 @@ GitHub overloads `403`, and the correct advice differs completely per case. Both
 the repo checker and the stats client classify failures the same way so the two
 cannot drift apart.
 
-| Term | Meaning | Remedy surfaced |
-| --- | --- | --- |
-| **SAML-protected** | Body mentions SAML enforcement: the token lacks organisation access. | Authorise the token for that organisation, then re-run. |
-| **Rate-limited** | Primary rate limit exhausted, or a body mentioning a secondary rate limit. | Wait for reset / set a GitHub token; for secondary limits, reduce concurrency. |
-| **Request failed** | Any other 403, non-recognised status, or transport error. | None; detail only. |
-| **Not found** | 404: deleted, renamed without redirect, or private to us. | None; the dependency needs replacing. |
-| **Blocked** | 451, legal takedown. | None. |
-| **Still computing** | GitHub had not finished aggregating stats within the retry budget. | Re-run shortly. |
+| Term | Reason code(s) | Meaning | Remedy surfaced |
+| --- | --- | --- | --- |
+| **SAML-protected** | `saml-protected`, `repository-saml-protected` | Body mentions SAML enforcement: the token lacks organisation access. | Authorise the token for that organisation, then re-run. |
+| **Rate-limited** | `rate-limited`, `repository-rate-limited` | Primary rate limit exhausted, or a body mentioning a secondary rate limit. | Wait for reset / set a GitHub token; for secondary limits, reduce concurrency. |
+| **Request failed** | `request-failed` | Any other 403, non-recognised status, or transport error. | None; detail only. |
+| **Not found** | `not-found`, `repository-not-found` | 404: deleted, renamed without redirect, or private to us. | None; the dependency needs replacing. |
+| **Blocked** | `blocked` | 451, legal takedown. | None. |
+| **Still computing** | `still-computing` | GitHub had not finished aggregating stats within the retry budget. | Re-run shortly. |
 
 **Forbidden:** collapsing these into a single "unavailable" reason. The whole
 point of the taxonomy is that the user's next action differs.
@@ -227,14 +229,6 @@ overwhelmingly the common case and the advice is harmless either way.
 
 ---
 
-## 8. Rules of thumb for agents
-
-1. Read [ADR-0001](docs/adr/0001-commit-based-truck-factor.md) before changing
-   how truck factor is computed. If a change contradicts an ADR, say so
-   explicitly instead of overriding it silently.
-2. Use the vocabulary above in identifiers, tests, issues, and output. Do not
-   drift to synonyms (`busFactor`, `owners`, `contributors count`).
-
 For implementation-level guidance (module map, CLI surface, cache mechanics,
-code-shape rules), see
+agent operating rules), see
 [docs/agents/engineering-guidelines.md](docs/agents/engineering-guidelines.md).

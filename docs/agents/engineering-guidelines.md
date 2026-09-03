@@ -20,17 +20,9 @@ respect.
 ## CLI surface and exit codes
 
 Public command is `truckguard` (see [ADR-0002](../adr/0002-rename-npm-package-to-truckguard.md)).
-Current invocation: `truckguard scan [path]` with `--dev`, `--json`, `--markdown`,
-`--output <path>`, `-h`/`--help`, `-v`/`--version`. `--json` and `--markdown` are mutually
-exclusive. Unknown commands and options are rejected, never ignored. Full flag and environment
-documentation lives in [README.md](../../README.md); this is a pointer, not a duplicate.
-
-Exit codes (`exitCodeFor`):
-
-| Code | Meaning |
-| --- | --- |
-| `0` | The scan ran. Some dependencies may be skipped; skips are reported, never hidden. |
-| `1` | Bad usage, an unreadable `package.json`, or **every** dependency was skipped. |
+`exitCodeFor` maps scan results to process exit codes: `0` when the scan ran (skips are reported,
+never hidden), `1` for bad usage, an unreadable manifest, or when every dependency was skipped.
+Full flag reference, environment variables, and examples live in [README.md](../../README.md).
 
 ## Cache semantics
 
@@ -59,9 +51,12 @@ Rules, all deliberate:
 2. Model absence as a variant that carries no numbers, not as an optional number (see
    "Unknown is not zero" in `CONTEXT.md`).
 3. Prefer adding a reported state over adding a default value.
-4. Use the vocabulary defined in `CONTEXT.md` in identifiers, tests, issues, and output. Do not
-   drift to synonyms (`busFactor`, `owners`, `contributors count`).
-5. Documentation stays ASCII.
+4. Documentation stays ASCII.
 
-Read [ADR-0001](../adr/0001-commit-based-truck-factor.md) before touching `src/truck-factor.ts`. If
-a change contradicts an ADR, say so explicitly instead of overriding it silently.
+## Agent operating rules
+
+1. Read [ADR-0001](../adr/0001-commit-based-truck-factor.md) before touching `src/truck-factor.ts`
+   or otherwise changing how truck factor is computed. If a change contradicts an ADR, say so
+   explicitly instead of overriding it silently.
+2. Use the vocabulary defined in `CONTEXT.md` in identifiers, tests, issues, and output. Do not
+   drift to synonyms (`busFactor`, `owners`, `contributors count`).
