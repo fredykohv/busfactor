@@ -17,3 +17,9 @@ The default canonical vocabulary: `needs-triage`, `needs-info`, `ready-for-agent
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Read order
+
+Before changing code: this file, then `CONTEXT.md`, then any ADR in `docs/adr/` that touches the
+area, then `README.md` and `docs/agents/engineering-guidelines.md` for user-facing usage and
+implementation reference respectively.
