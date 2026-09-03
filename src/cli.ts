@@ -2,35 +2,27 @@
 /**
  * `busfactor scan` — the walking skeleton.
  *
- * Deliberately thin: argument parsing, wiring the modules together, and
- * printing. All judgement lives in the modules underneath.
+ * Deliberately thin: wiring the modules together and printing. Argument
+ * handling lives in `cli-options.ts` so it can be tested directly; all
+ * judgement lives in the modules underneath.
  */
 
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { createNpmRegistryClient, createGitHubRepoChecker } from './resolve-repo.js';
 import { createGitHubStatsClient } from './stats-client.js';
 import { readManifest, scanDependencies, type DependencyResult } from './scan.js';
 import { compareByRisk } from './score.js';
 import { renderMarkdownReport } from './report.js';
 import { createFileCachedFetch } from './cache.js';
-
-interface Options {
-  readonly manifestPath: string;
-  readonly includeDev: boolean;
-  readonly json: boolean;
-  readonly markdown: boolean;
-}
-
-const parseArgs = (argv: readonly string[]): Options => ({
-  manifestPath: resolve(
-    argv.find((arg) => !arg.startsWith('-') && arg !== 'scan') ?? process.cwd(),
-    'package.json',
-  ),
-  includeDev: argv.includes('--dev'),
-  json: argv.includes('--json'),
-  markdown: argv.includes('--markdown'),
-});
+import {
+  exitCodeFor,
+  helpText,
+  manifestErrorMessage,
+  noTokenWarning,
+  parseArgs,
+  resolveCacheDirectory,
+} from './cli-options.js';
 
 const pct = (value: number): string => `${Math.round(value * 100)}%`;
 
@@ -93,68 +85,89 @@ const printTable = (results: readonly DependencyResult[]): void => {
   );
 };
 
+const version = (): string => {
+  try {
+    const pkg = createRequire(import.meta.url)('../package.json') as { version?: string };
+    return pkg.version ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+};
+
 const main = async (): Promise<void> => {
-  const options = parseArgs(process.argv.slice(2));
+  const parsed = parseArgs(process.argv.slice(2));
+
+  if (parsed.kind === 'help') {
+    console.log(helpText());
+    return;
+  }
+
+  if (parsed.kind === 'version') {
+    console.log(version());
+    return;
+  }
+
+  if (parsed.kind === 'error') {
+    console.error(parsed.message);
+    process.exitCode = 1;
+    return;
+  }
+
+  const options = parsed.options;
 
   let manifest;
   try {
-    manifest = readManifest(
-      JSON.parse(await readFile(options.manifestPath, 'utf8')),
-      { includeDev: options.includeDev },
-    );
+    manifest = readManifest(JSON.parse(await readFile(options.manifestPath, 'utf8')), {
+      includeDev: options.includeDev,
+    });
   } catch (error) {
-    console.error(
-      `Could not read ${options.manifestPath}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-    process.exit(1);
+    console.error(manifestErrorMessage(options.manifestPath, error));
+    process.exitCode = 1;
+    return;
   }
 
   if (manifest.dependencies.length === 0) {
-    console.log('No dependencies found.');
+    console.log(
+      options.includeDev
+        ? `No dependencies or devDependencies listed in ${options.manifestPath}.`
+        : `No dependencies listed in ${options.manifestPath}. Try --dev to include devDependencies.`,
+    );
     return;
   }
 
   const token = process.env['GITHUB_TOKEN'] ?? process.env['GH_TOKEN'];
-  if (!token) {
+  if (!token) console.error(noTokenWarning());
+
+  const cacheDirectory = resolveCacheDirectory(process.env, process.cwd());
+  const cachedFetch = createFileCachedFetch({ directory: cacheDirectory });
+
+  // Progress on stderr, so `--json` and `--markdown` stay pipeable. A cold npx
+  // run against a real project takes tens of seconds; silence reads as a hang.
+  if (process.stderr.isTTY) {
     console.error(
-      'Warning: no GITHUB_TOKEN set. GitHub allows only 60 unauthenticated\n' +
-        'requests per hour, which is not enough for most dependency lists.\n',
+      `Scanning ${manifest.dependencies.length} dependencies (cache: ${cacheDirectory})...`,
     );
   }
-
-  const cacheDirectory = resolve(
-    process.env['BUSFACTOR_CACHE_DIR'] ??
-      `${process.env['HOME'] ?? process.cwd()}/.cache/busfactor`,
-  );
-  const cachedFetch = createFileCachedFetch({ directory: cacheDirectory });
 
   const results = await scanDependencies(manifest, {
     registry: createNpmRegistryClient({ fetch: cachedFetch }),
     repoChecker: createGitHubRepoChecker(
-      token === undefined
-        ? { fetch: cachedFetch }
-        : { token, fetch: cachedFetch },
+      token === undefined ? { fetch: cachedFetch } : { token, fetch: cachedFetch },
     ),
     stats: createGitHubStatsClient(
-      token === undefined
-        ? { fetch: cachedFetch }
-        : { token, fetch: cachedFetch },
+      token === undefined ? { fetch: cachedFetch } : { token, fetch: cachedFetch },
     ),
   });
 
   if (options.json) {
     console.log(JSON.stringify(results, null, 2));
-    return;
-  }
-
-  if (options.markdown) {
+  } else if (options.markdown) {
     process.stdout.write(renderMarkdownReport(results));
-    return;
+  } else {
+    printTable(results);
   }
 
-  printTable(results);
+  process.exitCode = exitCodeFor(results);
 };
 
 await main();
