@@ -1,6 +1,6 @@
 {
   "name": "busfactor",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Ranks your direct npm dependencies by how badly you'd be stuck if the maintainers vanished.",
   "type": "module",
   "bin": {
@@ -14,11 +14,19 @@
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/fredykohv/busfactor#readme",
+  "bugs": {
+    "url": "https://github.com/fredykohv/busfactor/issues"
+  },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "release:check": "npm run typecheck && npm test && npm run build && npm pack --dry-run"
   },
   "keywords": [
     "dependencies",
