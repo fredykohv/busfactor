@@ -8,7 +8,9 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
 import { createNpmRegistryClient, createGitHubRepoChecker } from './resolve-repo.js';
 import { createGitHubStatsClient } from './stats-client.js';
 import { readManifest, scanDependencies, type DependencyResult } from './scan.js';
@@ -162,7 +164,16 @@ const main = async (): Promise<void> => {
   if (options.json) {
     console.log(JSON.stringify(results, null, 2));
   } else if (options.markdown) {
-    process.stdout.write(renderMarkdownReport(results));
+    const markdown = renderMarkdownReport(results);
+    if (options.markdownOutputPath !== undefined) {
+      const outputPath = resolve(process.cwd(), options.markdownOutputPath);
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, markdown, 'utf8');
+      process.stderr.write(`Markdown report written to ${outputPath}\n`);
+      process.stderr.write('Upload this file as a CI artifact and/or append it to the job summary.\n');
+    } else {
+      process.stdout.write(markdown);
+    }
   } else {
     printTable(results);
   }

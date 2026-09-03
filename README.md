@@ -23,10 +23,13 @@ busfactor scan [path] [options]
 | `--dev` | Include `devDependencies` as well as `dependencies`. |
 | `--json` | Emit the full result set as JSON, including skipped entries. |
 | `--markdown` | Emit an explainable Markdown report. |
+| `--output <path>` | Write the Markdown report to a deterministic file path (requires `--markdown`). |
 | `-h`, `--help` | Show usage. |
 | `-v`, `--version` | Show the version. |
 
 `--json` and `--markdown` are mutually exclusive. Unknown commands and options are rejected rather than ignored, so a typo never quietly produces a different report.
+
+When `--output` is used, Markdown is written to that file and not printed to stdout. This is intended for CI artifact paths.
 
 ### Environment
 
@@ -146,6 +149,47 @@ So the score combines:
 Pre-alpha. The metric is validated (see [Why commits](#why-commits-and-not-lines)), and `busfactor scan` works end to end with table, JSON, and Markdown output.
 
 See `docs/agents/` for how this repo is organised.
+
+## GitHub Actions distribution
+
+This repository ships a practical workflow at `.github/workflows/distribution.yml` that runs `busfactor` against the checked-out repository and publishes a shareable Markdown report.
+
+### What it does
+
+1. Checks out the repository being built.
+2. Installs dependencies and builds this CLI from source.
+3. Runs `node dist/cli.js scan --markdown --output .github/artifacts/busfactor-report.md`.
+4. Publishes that report as an Actions artifact.
+5. Appends the same Markdown to the workflow run summary.
+
+### Required permissions and token use
+
+The job requests:
+
+- `contents: read` (checkout)
+- `actions: read` (artifact/upload workflow metadata interactions)
+
+Pass `GITHUB_TOKEN` to the scan step. This raises GitHub API limits from 60 to 5000 requests/hour and keeps ordinary repositories from being dominated by rate-limit skips.
+
+The token is never rendered into the report output by this tool.
+
+### Locations
+
+- Deterministic report file in the runner workspace: `.github/artifacts/busfactor-report.md`
+- Uploaded artifact name: `busfactor-report`
+- Job summary: `$GITHUB_STEP_SUMMARY`
+
+Generated report files are not committed; they are CI artifacts and run summaries.
+
+### Failure behavior
+
+- Invalid CLI usage or an unreadable manifest exits non-zero.
+- A scan where no dependency could be analysed exits non-zero.
+- Ordinary partial skips (for example, some rate-limited or missing repos) are preserved in the report but still exit zero.
+
+### Limitation
+
+v1 analysis is **direct dependencies only** (`dependencies`, plus `devDependencies` only when `--dev` is passed). Transitive dependency analysis is intentionally out of scope.
 
 ## Prior art
 

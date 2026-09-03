@@ -55,6 +55,21 @@ describe('parseArgs', () => {
         markdown: false,
       },
     });
+
+  });
+
+  it('accepts --markdown with a deterministic output path', () => {
+    const parsed = run(['scan', '--markdown', '--output', 'artifacts/busfactor.md']);
+    expect(parsed).toEqual({
+      kind: 'run',
+      options: {
+        manifestPath: '/proj/package.json',
+        includeDev: false,
+        json: false,
+        markdown: true,
+        markdownOutputPath: 'artifacts/busfactor.md',
+      },
+    });
   });
 
   it.each([['--help'], ['-h']])('reports help for %s', (flag) => {
@@ -81,6 +96,18 @@ describe('parseArgs', () => {
     const parsed = run(['scan', '--json', '--markdown']);
     expect(parsed.kind).toBe('error');
     expect(parsed.kind === 'error' && parsed.message).toContain('not both');
+  });
+
+  it('rejects --output without --markdown', () => {
+    const parsed = run(['scan', '--output', 'artifacts/busfactor.md']);
+    expect(parsed.kind).toBe('error');
+    expect(parsed.kind === 'error' && parsed.message).toContain('requires --markdown');
+  });
+
+  it('rejects --output without a path', () => {
+    const parsed = run(['scan', '--markdown', '--output']);
+    expect(parsed.kind).toBe('error');
+    expect(parsed.kind === 'error' && parsed.message).toContain('Expected a file path');
   });
 
   it('rejects more than one path', () => {
@@ -139,6 +166,7 @@ describe('help and warnings', () => {
   it('documents every user-visible option', () => {
     const text = helpText();
     for (const flag of ['--dev', '--json', '--markdown', '--help', '--version']) {
+      expect(text).toContain('--output');
       expect(text).toContain(flag);
     }
     expect(text).toContain('BUSFACTOR_CACHE_DIR');
