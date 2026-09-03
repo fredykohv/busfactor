@@ -4,3 +4,4 @@ export * from './stats-client.js';
 export * from './scan.js';
 export * from './score.js';
 export * from './registry-signals.js';
+export * from './report.js';
