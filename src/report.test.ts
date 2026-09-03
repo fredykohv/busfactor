@@ -56,6 +56,40 @@ describe('renderMarkdownReport', () => {
     expect(report).toContain('| `missing` | `saml-protected` | repository requires organisation access | grant token access and retry |');
   });
 
+  // The repository verification step (not just contributor stats) can hit a
+  // SAML-guarded or rate-limited GitHub response. Both must render as
+  // first-class, actionable rows rather than a generic check-failed reason.
+  it('renders a SAML-protected repository check with its remedy', () => {
+    const result: DependencyResult = {
+      ok: false,
+      packageName: 'locked-repo',
+      reason: 'repository-saml-protected',
+      detail: 'repository is protected by organisation SAML enforcement',
+      remedy: 'grant your GitHub token access to this organisation, then re-run',
+    };
+
+    const report = renderMarkdownReport([result]);
+
+    expect(report).toContain('| `locked-repo` | `repository-saml-protected` |');
+    expect(report).toContain('grant your GitHub token access to this organisation, then re-run');
+  });
+
+  it('renders a rate-limited repository check with its remedy', () => {
+    const result: DependencyResult = {
+      ok: false,
+      packageName: 'busy-repo',
+      reason: 'repository-rate-limited',
+      detail: 'GitHub rate limit exhausted, resets at 2030-01-01T00:00:00.000Z',
+      remedy: 'wait for the reset, or set GITHUB_TOKEN for a higher limit',
+    };
+
+    const report = renderMarkdownReport([result]);
+
+    expect(report).toContain('| `busy-repo` | `repository-rate-limited` |');
+    expect(report).toContain('resets at 2030-01-01T00:00:00.000Z');
+    expect(report).toContain('wait for the reset, or set GITHUB_TOKEN for a higher limit');
+  });
+
   it('does not render unknown signals as numeric zeroes', () => {
     const report = renderMarkdownReport([analysed('package', 1)]);
 

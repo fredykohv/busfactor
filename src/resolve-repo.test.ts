@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createGitHubRepoChecker,
   parseRepositoryField,
   resolveRepo,
   resolveRepos,
@@ -337,5 +338,135 @@ describe('resolveRepos', () => {
       'no-repository-field',
       'non-github-host',
     ]);
+  });
+});
+
+// --- resolveRepo, propagating a forbidden verification result --------------
+
+describe('resolveRepo — SAML/rate-limit/blocked from the repo checker', () => {
+  const forbiddenChecker = (status: RepoStatus): RepoChecker => ({
+    async checkRepo() {
+      return status;
+    },
+  });
+
+  it('reports repository-saml-protected with the remedy, not a generic check failure', async () => {
+    const result = await resolveRepo('locked', {
+      registry: registryOf({ locked: { repository: 'https://github.com/acme/locked' } }),
+      repoChecker: forbiddenChecker({
+        state: 'forbidden',
+        reason: 'saml-protected',
+        detail: 'repository is protected by organisation SAML enforcement',
+        remedy: 'grant your GitHub token access to this organisation, then re-run',
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('repository-saml-protected');
+    expect(result.remedy).toMatch(/grant/i);
+  });
+
+  it('reports repository-rate-limited from the repo checker', async () => {
+    const result = await resolveRepo('busy', {
+      registry: registryOf({ busy: { repository: 'https://github.com/acme/busy' } }),
+      repoChecker: forbiddenChecker({
+        state: 'forbidden',
+        reason: 'rate-limited',
+        detail: 'GitHub rate limit exhausted, resets at 2030-01-01T00:00:00.000Z',
+        remedy: 'wait for the reset, or set GITHUB_TOKEN for a higher limit',
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('repository-rate-limited');
+    expect(result.detail).toContain('2030');
+  });
+
+  it('falls back to repository-check-failed for an unclassified forbidden response', async () => {
+    const result = await resolveRepo('blocked', {
+      registry: registryOf({ blocked: { repository: 'https://github.com/acme/blocked' } }),
+      repoChecker: forbiddenChecker({
+        state: 'forbidden',
+        reason: 'request-failed',
+        detail: 'repository acme/blocked is unavailable for legal reasons',
+      }),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('repository-check-failed');
+    expect(result.remedy).toBeUndefined();
+  });
+});
+
+// --- createGitHubRepoChecker, with fake fetch (no network) ------------------
+
+describe('createGitHubRepoChecker', () => {
+  const location: RepoLocation = { owner: 'acme', repo: 'widget' };
+
+  const stubFetch = (
+    status: number,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): typeof globalThis.fetch =>
+    (async () =>
+      new Response(body === undefined ? '' : JSON.stringify(body), {
+        status,
+        ...(headers ? { headers } : {}),
+      })) as unknown as typeof globalThis.fetch;
+
+  it('classifies a SAML-protected 403 as forbidden/saml-protected', async () => {
+    const checker = createGitHubRepoChecker({
+      fetch: stubFetch(403, { message: 'Resource protected by organization SAML enforcement.' }),
+    });
+
+    const status = await checker.checkRepo(location);
+
+    expect(status).toMatchObject({ state: 'forbidden', reason: 'saml-protected' });
+    if (status.state === 'forbidden') expect(status.remedy).toMatch(/grant/i);
+  });
+
+  it('classifies an exhausted rate limit as forbidden/rate-limited', async () => {
+    const reset = Math.floor(Date.parse('2030-01-01T00:00:00Z') / 1000);
+    const checker = createGitHubRepoChecker({
+      fetch: stubFetch(
+        403,
+        { message: 'API rate limit exceeded' },
+        { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(reset) },
+      ),
+    });
+
+    const status = await checker.checkRepo(location);
+
+    expect(status).toMatchObject({ state: 'forbidden', reason: 'rate-limited' });
+  });
+
+  it('classifies a 451 as forbidden/request-failed with a legal-reasons detail', async () => {
+    const checker = createGitHubRepoChecker({ fetch: stubFetch(451) });
+
+    const status = await checker.checkRepo(location);
+
+    expect(status).toMatchObject({ state: 'forbidden', reason: 'request-failed' });
+    if (status.state === 'forbidden') expect(status.detail).toContain('legal reasons');
+  });
+
+  it('still reports a 404 as missing', async () => {
+    const checker = createGitHubRepoChecker({ fetch: stubFetch(404) });
+
+    expect(await checker.checkRepo(location)).toEqual({ state: 'missing' });
+  });
+
+  it('still resolves a healthy repository', async () => {
+    const checker = createGitHubRepoChecker({
+      fetch: stubFetch(200, { full_name: 'acme/widget', archived: false }),
+    });
+
+    expect(await checker.checkRepo(location)).toEqual({
+      state: 'exists',
+      archived: false,
+      canonical: { owner: 'acme', repo: 'widget' },
+    });
   });
 });
