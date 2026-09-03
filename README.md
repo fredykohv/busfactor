@@ -10,6 +10,40 @@ Existing tools tell you a package has 3 maintainers. They don't tell you that tw
 npx busfactor scan
 ```
 
+Risk scores are **heuristics**, not certainties: they combine truck factor, author concentration, liveness, and other signals into a single explainable number, with the reasoning shown alongside it. Treat a high score as "worth a closer look," not as a verdict.
+
+## Installation
+
+Requires **Node.js 20 or later**.
+
+Run it without installing anything:
+
+```bash
+npx busfactor scan
+```
+
+Or install it globally:
+
+```bash
+npm install --global busfactor
+busfactor scan
+```
+
+Or as a local dev dependency, invoked via `npx` or an `npm` script:
+
+```bash
+npm install --save-dev busfactor
+npx busfactor scan
+```
+
+### First command
+
+```bash
+npx busfactor scan
+```
+
+Run from a directory containing a `package.json` (or point it at one — see [Usage](#usage)). The first run creates a local cache under `~/.cache/busfactor` (see [Environment](#environment)) and prints a ranked table to stdout.
+
 ## Usage
 
 ```
@@ -190,6 +224,16 @@ Generated report files are not committed; they are CI artifacts and run summarie
 ### Limitation
 
 v1 analysis is **direct dependencies only** (`dependencies`, plus `devDependencies` only when `--dev` is passed). Transitive dependency analysis is intentionally out of scope.
+
+## Releasing
+
+Releases are never automatic. `.github/workflows/release.yml` only runs on a manual `workflow_dispatch` or a pushed `v*` tag, and only publishes if an `NPM_TOKEN` secret is configured in the `npm-release` environment. To cut a release:
+
+1. Bump `version` in `package.json` (and `package-lock.json` via `npm install --package-lock-only`).
+2. Update `CHANGELOG.md`.
+3. Merge to `main`, then push a matching `vX.Y.Z` tag (or run the workflow manually).
+
+The workflow runs typecheck/test/build, verifies the tag matches `package.json`, then runs `npm publish --provenance --access public`. It requires an `NPM_TOKEN` npm automation token to be added as a repository secret (in a `npm-release` environment) before it can succeed. Nobody has done this yet — publishing is a deliberate manual step.
 
 ## Prior art
 
