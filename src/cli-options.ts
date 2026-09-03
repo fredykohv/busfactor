@@ -13,6 +13,7 @@ export interface RunOptions {
   readonly includeDev: boolean;
   readonly json: boolean;
   readonly markdown: boolean;
+  readonly markdownOutputPath?: string;
 }
 
 export type ParsedArgs =
@@ -21,7 +22,16 @@ export type ParsedArgs =
   | { readonly kind: 'version' }
   | { readonly kind: 'error'; readonly message: string };
 
-const KNOWN_FLAGS = new Set(['--dev', '--json', '--markdown', '--help', '-h', '--version', '-v']);
+const KNOWN_FLAGS = new Set([
+  '--dev',
+  '--json',
+  '--markdown',
+  '--output',
+  '--help',
+  '-h',
+  '--version',
+  '-v',
+]);
 
 /**
  * Accepts either a directory or a direct path to a `package.json`. Pointing at
@@ -55,6 +65,8 @@ export const helpText = (): string =>
     '  --dev           Include devDependencies as well as dependencies.',
     '  --json          Emit the full result set as JSON.',
     '  --markdown      Emit an explainable Markdown report.',
+    '  --output <path> Write Markdown output to a deterministic file path',
+    '                  (requires --markdown).',
     '  -h, --help      Show this help.',
     '  -v, --version   Show the version.',
     '',
@@ -105,18 +117,45 @@ export const parseArgs = (
     return { kind: 'error', message: `Unknown option "${unknown}". Run "busfactor --help".` };
   }
 
-  const positional = args.filter((arg) => !arg.startsWith('-'));
+  const json = args.includes('--json');
+  const markdown = args.includes('--markdown');
+  if (json && markdown) {
+    return { kind: 'error', message: 'Use either --json or --markdown, not both.' };
+  }
+
+  const outputIndices = args
+    .map((arg, index) => (arg === '--output' ? index : -1))
+    .filter((index) => index >= 0);
+  if (outputIndices.length > 1) {
+    return { kind: 'error', message: 'Use --output at most once.' };
+  }
+
+  const outputIndex = outputIndices[0];
+  const outputPath =
+    outputIndex === undefined
+      ? undefined
+      : args[outputIndex + 1] !== undefined && !args[outputIndex + 1]!.startsWith('-')
+        ? args[outputIndex + 1]!
+        : undefined;
+
+  if (outputIndex !== undefined && outputPath === undefined) {
+    return { kind: 'error', message: 'Expected a file path after --output.' };
+  }
+
+  if (outputPath !== undefined && !markdown) {
+    return { kind: 'error', message: '--output requires --markdown.' };
+  }
+
+  const positional = args.filter((arg, index) => {
+    if (arg === '--output') return false;
+    if (outputIndex !== undefined && index === outputIndex + 1) return false;
+    return !arg.startsWith('-');
+  });
   if (positional.length > 1) {
     return {
       kind: 'error',
       message: `Expected at most one path, got ${positional.length}: ${positional.join(', ')}.`,
     };
-  }
-
-  const json = args.includes('--json');
-  const markdown = args.includes('--markdown');
-  if (json && markdown) {
-    return { kind: 'error', message: 'Use either --json or --markdown, not both.' };
   }
 
   return {
@@ -126,6 +165,7 @@ export const parseArgs = (
       includeDev: args.includes('--dev'),
       json,
       markdown,
+      ...(outputPath === undefined ? {} : { markdownOutputPath: outputPath }),
     },
   };
 };

@@ -1,0 +1,48 @@
+name: Distribution
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  busfactor-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Generate markdown report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .github/artifacts
+          node dist/cli.js scan --markdown --output .github/artifacts/busfactor-report.md
+
+      - name: Publish report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: busfactor-report
+          path: .github/artifacts/busfactor-report.md
+          if-no-files-found: error
+
+      - name: Publish job summary
+        run: cat .github/artifacts/busfactor-report.md >> "$GITHUB_STEP_SUMMARY"
