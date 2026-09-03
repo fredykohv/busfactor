@@ -234,10 +234,7 @@ overwhelmingly the common case and the advice is harmless either way.
    explicitly instead of overriding it silently.
 2. Use the vocabulary above in identifiers, tests, issues, and output. Do not
    drift to synonyms (`busFactor`, `owners`, `contributors count`).
-3. Model absence as a state that carries no numbers, not as an optional number
-   defaulted to zero.
-4. Prefer adding a reported state over adding a default value.
-5. Documentation stays ASCII.
-6. For where these concepts live in code (module map, CLI surface, cache
-   mechanics), see
-   [docs/agents/engineering-guidelines.md](docs/agents/engineering-guidelines.md).
+
+For implementation-level guidance (module map, CLI surface, cache mechanics,
+code-shape rules), see
+[docs/agents/engineering-guidelines.md](docs/agents/engineering-guidelines.md).

@@ -1,7 +1,7 @@
 # Engineering guidelines
 
 Implementation-level reference for agents working in this codebase: where things live, how the
-code is shaped, and current CLI/cache mechanics. This is not domain vocabulary — see
+code is shaped, and current CLI/cache mechanics. This is not domain vocabulary - see
 [`CONTEXT.md`](../../CONTEXT.md) for the concepts and invariants these implementations must
 respect.
 
@@ -41,7 +41,7 @@ Rules, all deliberate:
 
 - **GET only.** Non-GET requests, and requests with `cache-control: no-store`, bypass the cache
   entirely.
-- **Only `200` responses are cached.** Errors, rate limits, and `202` are never persisted — caching
+- **Only `200` responses are cached.** Errors, rate limits, and `202` are never persisted - caching
   a rate-limit response would poison a whole day of runs.
 - **Empty bodies and `[]` are never cached.** An empty contributor array is GitHub's "still
   computing" signal, not a result. Caching it would freeze a false empty answer for the TTL.
