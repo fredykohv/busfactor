@@ -129,6 +129,27 @@ const main = async (): Promise<void> => {
   }
 
   if (manifest.dependencies.length === 0) {
+    if (options.markdown && options.markdownOutputPath !== undefined) {
+      const outputPath = resolve(process.cwd(), options.markdownOutputPath);
+      await mkdir(dirname(outputPath), { recursive: true });
+      const emptyReport =
+        '# Dependency risk report\n\n' +
+        `Analysed **0** of **0** direct dependencies; **0** skipped.\n\n` +
+        '## Ranked dependencies\n\n' +
+        '| Rank | Package | Risk | Truck factor | Top author | Top share | Flags |\n' +
+        '| ---: | --- | ---: | ---: | --- | ---: | --- |\n' +
+        '| - | No dependencies analysed | - | - | - | - | - |\n\n' +
+        '## Why these scores\n\n' +
+        'No analysed dependencies have score factors to explain.\n\n' +
+        '## Skipped dependencies\n\n' +
+        'None.\n\n' +
+        'Scores are heuristic and explainable, not a guarantee of maintainer behaviour. Unknown signals are omitted rather than treated as zero.\n';
+      await writeFile(outputPath, emptyReport, 'utf8');
+      process.stderr.write(`Markdown report written to ${outputPath}\n`);
+      process.stderr.write('Upload this file as a CI artifact and/or append it to the job summary.\n');
+      return;
+    }
+
     console.log(
       options.includeDev
         ? `No dependencies or devDependencies listed in ${options.manifestPath}.`

@@ -70,6 +70,21 @@ describe('parseArgs', () => {
         markdownOutputPath: 'artifacts/busfactor.md',
       },
     });
+
+  });
+
+  it('accepts --markdown --output without a positional path', () => {
+    const parsed = run(['scan', '--markdown', '--output', '.github/artifacts/busfactor-report.md']);
+    expect(parsed).toEqual({
+      kind: 'run',
+      options: {
+        manifestPath: '/proj/package.json',
+        includeDev: false,
+        json: false,
+        markdown: true,
+        markdownOutputPath: '.github/artifacts/busfactor-report.md',
+      },
+    });
   });
 
   it.each([['--help'], ['-h']])('reports help for %s', (flag) => {
